@@ -5,6 +5,8 @@ import UserModel from "../models/userModel";
 import { HashPassword, comparePassword } from "../util/passwordCryptdecrypt";
 import IdempotentKeyModel from "../models/IdempotentKey";
 import generateToken from "../config/tokengeneration.ts"
+import refreshtokenModel from "../models/refreshtokenModel.ts";
+import { getExpirationDate } from "../util/DateExpire.ts";
 
 // @ts-ignore
 const RegisterUser = expressAsyncHandler(async(req , res) => {
@@ -48,8 +50,8 @@ const RegisterUser = expressAsyncHandler(async(req , res) => {
    }
     
    
-    const accessToken = generateToken.generateAccessToken({id : newUser._id})
-    const refreshToken = generateToken.generateRefreshToken({id : newUser._id})
+    const accessToken = generateToken.generateAccessToken({id : newUser._id.toString()})
+    const refreshToken = generateToken.generateRefreshToken()
     const successfullResponse = {
         message: "User registered successfully",
         user : {
@@ -61,6 +63,25 @@ const RegisterUser = expressAsyncHandler(async(req , res) => {
         }, 
         token: accessToken
     }
+
+    let newToken
+   try {
+     newToken = await refreshtokenModel.create({
+        token : refreshToken,
+        userId : newUser._id,
+        expiresAt : getExpirationDate(15) 
+
+    })
+   } catch (error) {
+    console.error("Failed to create refresh token:", error);
+    
+    // Delete the user we just created (rollback)
+    await UserModel.findByIdAndDelete(newUser._id);
+    
+    // Return error to client
+    return apiErrorHandler(res, 500, "Registration failed. Please try again.");
+   }
+
     res.cookie("refreshToken" , refreshToken , {
         httpOnly : true ,
         secure : process.env.NODE_ENV === "production" ,
@@ -96,8 +117,8 @@ const LoginUser = expressAsyncHandler(async(req , res) => {
     if (!passwordMatch) {
         return apiErrorHandler(res , 401 , "Invalid credentials") ;
     }
-    const accessToken = generateToken.generateAccessToken({id : User._id})
-    const refreshToken = generateToken.generateRefreshToken({id : User._id})
+    const accessToken = generateToken.generateAccessToken({id : User._id.toString()})
+    const refreshToken = generateToken.generateRefreshToken()
 
     const successfulLoginResponse = {
         message : "Login successful" ,

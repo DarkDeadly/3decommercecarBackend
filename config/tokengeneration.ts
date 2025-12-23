@@ -1,12 +1,17 @@
 import JWT from "jsonwebtoken";
- 
+import crypto from "crypto"
+
+interface TokenPayload {
+    id: string;
+}
+
 const generateToken = {
-    generateAccessToken: (payload: object) => {
-        return JWT.sign(payload, process.env.JWT_SECRET!, { expiresIn: "1h" });
+    generateAccessToken: (payload: TokenPayload):string => {
+        return JWT.sign(payload, process.env.JWT_SECRET!, { expiresIn: "15m" });
     },
     
-    generateRefreshToken: (payload: object) => {
-        return JWT.sign(payload, process.env.JWT_REFRESH_SECRET!, { expiresIn: "15d" });
+    generateRefreshToken: () : string => {
+        return crypto.randomBytes(64).toString("hex")
     }
 }
 
