@@ -17,9 +17,11 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cron": "^4.4.0",
     "express": "^5.2.1",
     "express-async-handler": "^1.2.0",

@@ -1,13 +1,18 @@
-import express from "express"
-import 'dotenv/config'
-import connectDb from "./config/db.ts"
+import express from "express";
+import "dotenv/config";
+import connectDb from "./config/db.ts";
+import cookieParser from "cookie-parser";
+import userRoutes from "./routes/UserRoute.ts";
 
-const app = express()
-const port = process.env.PORT
+const app = express();
+const port = process.env.PORT;
 
-app.use(express.json())
-connectDb()
+connectDb();
 
-app.listen(port , () => {
-    console.log(`listening to port ${port}`)
-})
+app.use(express.json());
+app.use(cookieParser());
+app.use("/api/users", userRoutes);
+
+app.listen(port, () => {
+    console.log(`listening to port ${port}`);
+});

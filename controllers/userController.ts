@@ -9,6 +9,7 @@ import refreshtokenModel from "../models/refreshtokenModel.ts";
 import { getExpirationDate } from "../util/DateExpire.ts";
 import type { Request , Response } from "express";
 import clearCookies from "../util/logoutFunc.ts";
+import type {AuthenticatedRequest} from "../middleware/authMiddleware.ts"
 
 // @ts-ignore
 const RegisterUser = expressAsyncHandler(async(req , res) => {
@@ -172,4 +173,29 @@ const logout = async (req : Request, res : Response) => {
     }
 }
 
-export { RegisterUser , LoginUser , logout } ;
+const logoutFromAllDevices = async(req: AuthenticatedRequest, res: Response) => {
+    try {
+        const userId = req.user?.id;
+        
+        // Add this check
+        if (!userId) {
+            return apiErrorHandler(res, 401, "Unauthorized");
+        }
+        
+        await refreshtokenModel.updateMany(
+            { userId: userId },
+            { isRevoked: true }
+        );
+        
+        clearCookies(res, "refreshToken");
+        return res.status(200).json({ 
+            message: "Successfully logged out from all devices" 
+        });
+        
+    } catch (error) {
+        console.error("Logout all devices error:", error);
+        return apiErrorHandler(res, 500, "Logout failed");
+    }
+};
+
+export { RegisterUser , LoginUser , logout , logoutFromAllDevices} ;
