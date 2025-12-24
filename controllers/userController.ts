@@ -7,6 +7,8 @@ import IdempotentKeyModel from "../models/IdempotentKey";
 import generateToken from "../config/tokengeneration.ts"
 import refreshtokenModel from "../models/refreshtokenModel.ts";
 import { getExpirationDate } from "../util/DateExpire.ts";
+import type { Request , Response } from "express";
+import clearCookies from "../util/logoutFunc.ts";
 
 // @ts-ignore
 const RegisterUser = expressAsyncHandler(async(req , res) => {
@@ -64,9 +66,9 @@ const RegisterUser = expressAsyncHandler(async(req , res) => {
         token: accessToken
     }
 
-    let newToken
+    
    try {
-     newToken = await refreshtokenModel.create({
+      await refreshtokenModel.create({
         token : refreshToken,
         userId : newUser._id,
         expiresAt : getExpirationDate(15) 
@@ -109,7 +111,7 @@ const LoginUser = expressAsyncHandler(async(req , res) => {
         
     }
     const {email , password} = Result.data
-    const User = await UserModel.findOne({email}) 
+    const User = await UserModel.findOne({email}).select("+password") 
     if (!User) {
         return apiErrorHandler(res , 401 , "Invalid credentials") ;
     }
@@ -131,6 +133,16 @@ const LoginUser = expressAsyncHandler(async(req , res) => {
         },
         token:  accessToken,     
     } 
+    try {
+    await refreshtokenModel.create({
+        token: refreshToken,
+        userId: User._id,
+        expiresAt: getExpirationDate(15)
+    });
+} catch (error) {
+    console.error("Failed to create refresh token:", error);
+    return apiErrorHandler(res, 500, "Login failed. Please try again.");
+}  
     res.cookie("refreshToken" , refreshToken , {
         httpOnly : true ,
         secure : process.env.NODE_ENV === "production" ,
@@ -140,5 +152,24 @@ const LoginUser = expressAsyncHandler(async(req , res) => {
     return res.status(200).json(successfulLoginResponse) ;
 })
 
+const logout = async (req : Request, res : Response) => {
+    try {
+        // Step 1 : get the RT from cookie
+        const currentCookieToken = req.cookies.refreshToken
+        // Step 2 : Check its availabily in db
+        const currentRt = await refreshtokenModel.findOne({token : currentCookieToken})
+        if(!currentRt) {
+            clearCookies(res , "refreshToken")
+             return res.status(200).json({message: "Logged out successfully"})
+        }
+        // Step 3 : Revoke it
+        await refreshtokenModel.findOneAndUpdate({token : currentCookieToken} , {isRevoked : true})
+        // Step 4 : Clear Cookie
+        clearCookies(res , "refreshToken")
+        return res.status(200).json({message: "Logged out successfully"})
+    } catch (error) {
+        throw error
+    }
+}
 
-export { RegisterUser , LoginUser } ;
+export { RegisterUser , LoginUser , logout } ;
